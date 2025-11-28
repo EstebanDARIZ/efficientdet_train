@@ -7,19 +7,28 @@ from PIL import Image
 
 class TXTDetectionDataset(Dataset):
     """
-    Format attendu :
-    images/
-        image1.jpg
-        image2.jpg
-        ...
-    labels/
-        image1.txt
-        image2.txt
-        ...
+    Dataset for object detection using TXT annotation files.
+    Each image has a corresponding .txt file with bounding box annotations.
+    Exemple of .txt file format:
+    0 34 45 200 300
+    1 120 150 400 500
+    where each line represents: class_id xmin ymin xmax ymax
+    0-based class IDs are used.
 
-    Chaque fichier .txt contient :
-    class_id xmin ymin xmax ymax
+    Args:
+        images_dir (str or Path): Directory containing images.
+        labels_dir (str or Path): Directory containing TXT annotation files.
+        image_size (int): Size to which images are resized (image_size x image_size).
+    
+    Returns:
+        image (Tensor): Resized image tensor.
+        target (dict): Dictionary containing:
+            - "bbox": Tensor of shape (num_boxes, 4) with bounding boxes in (ymin, xmin, ymax, xmax) format.
+            - "cls": Tensor of shape (num_boxes,) with class IDs.
+            - "img_size": Tensor with original image size.
+            - "img_scale": Tensor with scaling factor applied to the image.
     """
+
     def __init__(self, images_dir, labels_dir, image_size=512):
         self.images_dir = Path(images_dir)
         self.labels_dir = Path(labels_dir)
@@ -41,8 +50,8 @@ class TXTDetectionDataset(Dataset):
         target_w = target_h = self.image_size
 
         img = img.resize((target_w, target_h))
-        scale_x = target_w / orig_w
-        scale_y = target_h / orig_h
+        scale_x = target_w / orig_w  #Used to scale bounding boxes
+        scale_y = target_h / orig_h  #Used to scale bounding boxes
 
         txt_path = self.labels_dir / (img_path.stem + ".txt")
 
@@ -57,17 +66,20 @@ class TXTDetectionDataset(Dataset):
                         continue
                     cls, xmin, ymin, xmax, ymax = map(float, parts)
                     
-                    xmin *= scale_x
+                    xmin *= scale_x # Scale bounding box coordinates
                     xmax *= scale_x
                     ymin *= scale_y
                     ymax *= scale_y
 
-                    bboxes.append([ymin, xmin, ymax, xmax])
+                    bboxes.append([xmin, ymin,  xmax, ymax])
                     labels.append(cls)
-
+        # Handle case with no bounding boxes
         if len(bboxes) == 0:
-            bboxes = [[0, 0, 1, 1]]
-            labels = [0]
+            bboxes = torch.zeros((0, 4), dtype=torch.float32)
+            labels = torch.zeros((0,), dtype=torch.float32)
+        else:
+            bboxes = torch.tensor(bboxes, dtype=torch.float32)
+            labels = torch.tensor(labels, dtype=torch.float32)
 
         return (
             F.to_tensor(img),
@@ -75,7 +87,7 @@ class TXTDetectionDataset(Dataset):
                 "bbox": torch.tensor(bboxes, dtype=torch.float32),
                 "cls": torch.tensor(labels, dtype=torch.float32),
                 "img_size": torch.tensor([target_h, target_w]),
-                "img_scale": torch.tensor([1.0]),
+                "img_scale": torch.tensor([1.0]), # No scaling applied after resizing, efficentde doesn't use it
             },
         )
 

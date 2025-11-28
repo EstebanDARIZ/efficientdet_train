@@ -8,6 +8,32 @@ from tqdm import tqdm
 
 from datasets.txt_dataset import TXTDetectionDataset, collate_fn
 
+"""
+Training script for EfficientDet object detection model using a custom TXT dataset.
+
+Args:
+    --images-dir: Directory containing training images.
+    --labels-dir: Directory containing TXT annotation files.
+    --num-classes: Number of object classes.
+    --model-name: EfficientDet model variant (default: tf_efficientdet_lite0).
+    --image-size: Size to which images are resized (default: 320).
+    --batch-size: Training batch size (default: 4).
+    --epochs: Number of training epochs (default: 10).
+    --lr: Learning rate (default: 1e-4).
+    --checkpoint: Path to save the best model checkpoint (default: training/checkpoints/model.pth).
+    --onnx-out: Path to export the trained model in ONNX format (optional).
+
+Exemple usage:
+    python training/train.py \
+    --images-dir /home/esteban-dreau-darizcuren/doctorat/dataset/dataset/images \
+    --labels-dir /home/esteban-dreau-darizcuren/doctorat/dataset/dataset/labels \
+    --num-classes 6 \
+    --epochs 1 \
+    --batch-size 8 \
+    --lr 0.0001 \
+    --checkpoint training/checkpoints/best_model.pth \
+    --onnx-out onnx_models/efficientdet.onnx   
+"""
 
 def create_model(model_name, num_classes, image_size):
     config = get_efficientdet_config(model_name)
@@ -32,11 +58,11 @@ def train_one_epoch(model, loader, optimizer, device):
             "img_scale": torch.stack([t["img_scale"] for t in targets]).to(device),
         }
 
-        optimizer.zero_grad()
-        loss = model(imgs, targets)["loss"]
-        loss.backward()
-        optimizer.step()
-        total += loss.item()
+        optimizer.zero_grad() # Reset gradients
+        loss = model(imgs, targets)["loss"] # Compute loss
+        loss.backward() # Backpropagation, compute gradients from loss
+        optimizer.step() # Update model parameters, using gradients estimated in backward()
+        total += loss.item() # Accumulate loss value
 
     return total / len(loader)
 
@@ -46,7 +72,7 @@ from onnx_wrapper import EfficientDetONNX
 def export_onnx(model, config, path, image_size, device):
     print("Export ONNX sans NMS…")
 
-    pred = EfficientDetONNX(model.model, config).to(device)
+    pred = EfficientDetONNX(model.model).to(device)
     pred.eval()
 
     dummy = torch.randn(1, 3, image_size, image_size).to(device)
