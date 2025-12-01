@@ -51,23 +51,34 @@ def create_model(model_name, num_classes, image_size):
 
 def train_one_epoch(model, loader, optimizer, device):
     model.train()
-    total = 0
-    for i, (imgs, targets) in tqdm(enumerate(loader), total=len(loader), desc="Training", ncols=80):        
+    total_loss = 0
+
+    for imgs, targets in tqdm(loader, desc="Training", ncols=80):
+        # Move images
         imgs = imgs.to(device)
-        targets = {
-            "bbox": [t["bbox"].to(device) for t in targets],
-            "cls": [t["cls"].to(device) for t in targets],
-            "img_size": torch.stack([t["img_size"] for t in targets]).to(device),
-            "img_scale": torch.stack([t["img_scale"] for t in targets]).to(device),
-        }
 
-        optimizer.zero_grad() # Reset gradients
-        loss = model(imgs, targets)["loss"] # Compute loss
-        loss.backward() # Backpropagation, compute gradients from loss
-        optimizer.step() # Update model parameters, using gradients estimated in backward()
-        total += loss.item() # Accumulate loss value
+        # Move each dict of targets to device
+        for t in targets:
+            t["bbox"] = t["bbox"].to(device)
+            t["cls"] = t["cls"].to(device)
+            t["img_size"] = t["img_size"].to(device)
+            t["img_scale"] = t["img_scale"].to(device)
 
-    return total / len(loader)
+        optimizer.zero_grad()
+        
+        # EfficientDet expects:
+        # imgs: Tensor[B, 3, H, W]
+        # targets: list of dicts
+        out = model(imgs, targets)
+        loss = out["loss"]
+
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item()
+
+    return total_loss / len(loader)
+
 
 
 def export_onnx(model, config, path, image_size, device):
