@@ -2,3 +2,4 @@
 __pycache__/
 training/checkpoints/
 onnx_models/
+result*.jpg

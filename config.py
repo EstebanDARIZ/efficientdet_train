@@ -9,4 +9,4 @@ CLASS_NAMES = [
     "Pilotefish"
 ]
 
-ONNX_MODEL_PATH = "onnx_models/efficientdet.onnx"
+MODEL_PATH = "onnx_models/efficientdet_test_1.onnx"

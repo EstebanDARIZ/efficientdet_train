@@ -3,8 +3,9 @@ import torch
 from torch.utils.data import DataLoader
 from effdet import get_efficientdet_config, EfficientDet
 from effdet.efficientdet import HeadNet
-from effdet.bench import DetBenchTrain, DetBenchPredict
+from effdet.bench import DetBenchTrain
 from tqdm import tqdm
+# from effdet.onnx_export import EfficientDetONNXExport
 
 from datasets.txt_dataset import TXTDetectionDataset, collate_fn
 
@@ -67,33 +68,36 @@ def train_one_epoch(model, loader, optimizer, device):
     return total / len(loader)
 
 
-from onnx_wrapper import EfficientDetONNX
-
 def export_onnx(model, config, path, image_size, device):
-    print("Export ONNX sans NMS…")
+    print("Export ONNX (raw outputs)…")
 
-    pred = EfficientDetONNX(model.model).to(device)
-    pred.eval()
+    # Modèle d'export ONNX (raw classification + raw box regression)
+    # export_model = DetBenchEval(model.model, config)
+    # export_model.eval()
+    # export_model.to("cpu")
 
-    dummy = torch.randn(1, 3, image_size, image_size).to(device)
+    pred = model.model 
+    pred.eval().to('cpu')
 
+    # Dummy input
+    dummy = torch.randn(1, 3, image_size, image_size, dtype=torch.float32)
+
+    # Export ONNX : 2 sorties -> class_out, box_out
     torch.onnx.export(
         pred,
         dummy,
         path,
         input_names=["images"],
-        output_names=["scores", "labels", "boxes"],
+        output_names=["class_out", "box_out"],
         opset_version=12,
         dynamic_axes={
             "images": {0: "batch"},
-            "scores": {0: "batch"},
-            "labels": {0: "batch"},
-            "boxes": {0: "batch"},
-        },
+            "class_out": {0: "batch"},
+            "box_out": {0: "batch"},
+        }
     )
 
     print("✔ ONNX exporté :", path)
-
 
 
 def main():
