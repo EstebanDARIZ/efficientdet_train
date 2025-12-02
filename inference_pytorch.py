@@ -59,6 +59,7 @@ def preprocess_image(path, image_size):
     tensor = torch.from_numpy(padded).permute(2, 0, 1).float() / 255.0
     return tensor.unsqueeze(0), img, scale
 
+from torchvision.ops import nms
 
 @torch.no_grad()
 def predict(model, tensor, threshold):
@@ -70,7 +71,9 @@ def predict(model, tensor, threshold):
 
     mask = scores > threshold
 
-    return boxes[mask], scores[mask], labels[mask]
+    keep = nms(boxes[mask], scores[mask], iou_threshold=0.5)
+
+    return boxes[keep], scores[keep], labels[keep]
 
 def restore_boxes_to_original(boxes, original_h, original_w, scale):
     # Undo scaling

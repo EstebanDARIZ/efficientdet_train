@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 from effdet import get_efficientdet_config, EfficientDet
 from effdet.efficientdet import HeadNet
 from effdet.bench import DetBenchTrain
+from effdet import create_model 
 from tqdm import tqdm
 # from effdet.onnx_export import EfficientDetONNXExport
 

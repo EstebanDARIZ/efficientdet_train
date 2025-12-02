@@ -7,26 +7,8 @@ from PIL import Image
 
 class TXTDetectionDataset(Dataset):
     """
-    Dataset for object detection using TXT annotation files.
-    Each image has a corresponding .txt file with bounding box annotations.
-    Exemple of .txt file format:
-    0 34 45 200 300
-    1 120 150 400 500
-    where each line represents: class_id xmin ymin xmax ymax
-    0-based class IDs are used.
-
-    Args:
-        images_dir (str or Path): Directory containing images.
-        labels_dir (str or Path): Directory containing TXT annotation files.
-        image_size (int): Size to which images are resized (image_size x image_size).
-    
-    Returns:
-        image (Tensor): Resized image tensor.
-        target (dict): Dictionary containing:
-            - "bbox": Tensor of shape (num_boxes, 4) with bounding boxes in (ymin, xmin, ymax, xmax) format.
-            - "cls": Tensor of shape (num_boxes,) with class IDs.
-            - "img_size": Tensor with original image size.
-            - "img_scale": Tensor with scaling factor applied to the image.
+    Dataset compatible with EfficientDet (effdet).
+    TXT files format: class xmin ymin xmax ymax
     """
 
     def __init__(self, images_dir, labels_dir, image_size=512):
@@ -47,47 +29,48 @@ class TXTDetectionDataset(Dataset):
         img = Image.open(img_path).convert("RGB")
 
         orig_w, orig_h = img.size
-        target_w = target_h = self.image_size
+        new_size = self.image_size
 
-        img = img.resize((target_w, target_h))
-        scale_x = target_w / orig_w  #Used to scale bounding boxes
-        scale_y = target_h / orig_h  #Used to scale bounding boxes
+        # Resize
+        img = img.resize((new_size, new_size))
+        scale_x = new_size / orig_w
+        scale_y = new_size / orig_h
 
+        # Load labels
         txt_path = self.labels_dir / (img_path.stem + ".txt")
-
-        bboxes = []
+        boxes = []
         labels = []
 
         if txt_path.exists():
             with open(txt_path, "r") as f:
                 for line in f:
-                    parts = line.strip().split()
-                    if len(parts) != 5:
-                        continue
-                    cls, xmin, ymin, xmax, ymax = map(float, parts)
-                    
-                    xmin *= scale_x # Scale bounding box coordinates
+                    cls, xmin, ymin, xmax, ymax = map(float, line.split())
+
+                    # Scale
+                    xmin *= scale_x
                     xmax *= scale_x
                     ymin *= scale_y
                     ymax *= scale_y
 
-                    bboxes.append([xmin, ymin,  xmax, ymax])
-                    labels.append(cls)
-        # Handle case with no bounding boxes
-        if len(bboxes) == 0:
-            bboxes = torch.zeros((0, 4), dtype=torch.float32)
-            labels = torch.zeros((0,), dtype=torch.float32)
+                    # EfficientDet wants (ymin, xmin, ymax, xmax)
+                    boxes.append([ymin, xmin, ymax, xmax])
+                    labels.append(int(cls))  # class ID as int
+
+        # Convert to tensor
+        if len(boxes) == 0:
+            boxes = torch.zeros((0, 4), dtype=torch.float32)
+            labels = torch.zeros((0,), dtype=torch.int64)
         else:
-            bboxes = torch.tensor(bboxes, dtype=torch.float32)
-            labels = torch.tensor(labels, dtype=torch.float32)
+            boxes = torch.tensor(boxes, dtype=torch.float32)
+            labels = torch.tensor(labels, dtype=torch.int64)
 
         return (
             F.to_tensor(img),
             {
-                "bbox": torch.tensor(bboxes, dtype=torch.float32),
-                "cls": torch.tensor(labels, dtype=torch.float32),
-                "img_size": torch.tensor([target_h, target_w]),
-                "img_scale": torch.tensor([1.0]), # No scaling applied after resizing, efficentde doesn't use it
+                "bbox": boxes,
+                "cls": labels,
+                "img_size": torch.tensor([new_size, new_size], dtype=torch.float32),
+                "img_scale": torch.tensor([1.0], dtype=torch.float32),
             },
         )
 
