@@ -57,7 +57,14 @@ def plot(imgs, with_orig=True, row_title=None, **imshow_kwargs):
 
 
 
-color_jitter_param = 0.4
+color_jitter = 0.4
+
+ColorJitterEffDet(
+                    brightness=color_jitter,
+                    contrast=color_jitter,
+                    saturation=color_jitter,
+                    hue=color_jitter * 0.1,
+            )
 
 jitter = T.ColorJitter(brightness=.5, hue=.3)
 jitted_imgs = [jitter(orig_img) for _ in range(4)]
