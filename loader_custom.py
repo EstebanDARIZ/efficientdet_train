@@ -3,8 +3,19 @@
 Hacked together by / Copyright 2020 Ross Wightman
 """
 import torch.utils.data
-from .transforms import *
-from .random_erasing import RandomErasing
+# from .transforms import *
+
+from .transforms_custom import (
+    transforms_coco_train,
+    transforms_coco_eval,
+    IMAGENET_DEFAULT_MEAN,
+    IMAGENET_DEFAULT_STD,
+)
+
+import numpy as np
+
+
+from effdet.data.random_erasing import RandomErasing
 from effdet.anchors import AnchorLabeler
 from timm.data.distributed_sampler import OrderedDistributedSampler
 import os
@@ -175,6 +186,7 @@ def create_loader(
         color_jitter=0.0,
         auto_augment=None,
 ):
+    print("########## Custom loader called ###############################################")
     if isinstance(input_size, tuple):
         img_size = input_size[-2:]
     else:
