@@ -11,11 +11,13 @@ import os
 Inference script for EfficientDet object detection model using PyTorch.
 Exemple usage:
 python inference.py \
-    --model efficientdet_d0 \
-    --checkpoint /home/esteban-dreau-darizcuren/doctorat/code/detector/efficientdet_train/output/train/20251202-113817-efficientdet_d0/model_best.pth.tar \
-    --image 5.png \
+    --model tf_efficientdet_d0 \
+    --checkpoint /home/esteban-dreau-darizcuren/doctorat/code/detector/efficientdet_train/output/train/20251203-155514-tf_efficientdet_d0/model_best.pth.tar \
+    --image-dir /home/esteban-dreau-darizcuren/doctorat/dataset/datat_test \
     --num-classes 5 \
-    --output out.jpg
+    --output-dir /home/esteban-dreau-darizcuren/doctorat/code/detector/efficientdet_train/output/inference \
+    --device cuda \
+    --score-thresh 0.5
 '''
 
 
@@ -95,13 +97,18 @@ def main():
 
     parser.add_argument("--model", required=True, help="Model name (ex: tf_efficientdet_lite0)")
     parser.add_argument("--checkpoint", required=True, help="Path to checkpoint .pth.tar")
-    parser.add_argument("--image", required=True, help="Path to input image")
+    parser.add_argument("--image-dir", required=True, help="Path to input images directory")
     parser.add_argument("--num-classes", type=int, required=True, help="Number of classes")
     parser.add_argument("--image-size", type=int, default=512, help="Image size used during training")
-    parser.add_argument("--output", default="result.jpg", help="Output image file")
+    parser.add_argument("--output-dir", default="result.jpg", help="Output directory to save results")
     parser.add_argument("--device", default="cuda", help="cuda or cpu")
+    parser.add_argument("--score-thresh", type=float, default=0.1, help="Score threshold for displaying detections")
 
     args = parser.parse_args()
+
+    score_thresh = args.score_thresh
+    img_dir = args.image_dir
+    out_dir = args.output_dir
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
@@ -115,17 +122,20 @@ def main():
     )
 
     # Load & preprocess image
-    img, img_tensor = preprocess_image(args.image, args.image_size, device)
+    for img_name in os.listdir(img_dir):
+        img_path = os.path.join(img_dir, img_name)
+        img, img_tensor = preprocess_image(img_path, args.image_size, device)
 
-    # Inference
-    detections = run_inference(bench, img_tensor)
+        # Inference
+        detections = run_inference(bench, img_tensor)
 
-    # Draw results
-    result = draw_detections(img, detections, args.image_size)
+        # Draw results
+        result = draw_detections(img, detections, args.image_size, score_thresh)
 
-    # Save image
-    cv2.imwrite(args.output, result)
-    print(f"[INFO] Saved detection result to: {args.output}")
+        # Save image
+        output_path = os.path.join(out_dir, img_name)
+        cv2.imwrite(output_path, result)
+        # print(f"[INFO] Saved detection result to: {args.output}")
 
 
 if __name__ == "__main__":

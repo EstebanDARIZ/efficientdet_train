@@ -26,10 +26,10 @@ python train.py \
     --amp \
     --output output/
 
-python train_dev.py \
+python train.py \
     /home/esteban-dreau-darizcuren/doctorat/dataset/dataset_coco \
     --dataset coco \
-    --model tf_efficientdet_lite0 \
+    --model tf_efficientdet_d0 \
     --num-classes 5 \
     --epochs 1 \
     --warmup-epochs 0 \
@@ -38,6 +38,10 @@ python train_dev.py \
     --batch-size 8 \
     --amp \
     --output output/
+    --color-jitter 0.4 --- IGNORE ---
+
+    
+
 
 python train.py \
     /home/esteban-dreau-darizcuren/doctorat/dataset/dataset_coco \
@@ -47,9 +51,7 @@ python train.py \
     --num-classes 5 \
     --batch-size 8 \
     --lr 0.0001 \
-    --epochs 1 \
-    --warmup-epochs 0 \
-    --cooldown-epochs 0 \
+    --epochs 100 \
     --amp \
     --output output/
 
@@ -202,8 +204,8 @@ parser.add_argument('--decay-rate', '--dr', type=float, default=0.1, metavar='RA
                     help='LR decay rate (default: 0.1)')
 
 # Augmentation parameters
-parser.add_argument('--color-jitter', type=float, default=0.4, metavar='PCT',
-                    help='Color jitter factor (default: 0.4)')
+parser.add_argument('--color-jitter', type=float, default=0.0, metavar='PCT',
+                    help='Color jitter factor (default: 0.0)')
 parser.add_argument('--aa', type=str, default=None, metavar='NAME',
                     help='Use AutoAugment policy. "v0" or "original". (default: None)'),
 parser.add_argument('--reprob', type=float, default=0., metavar='PCT',
@@ -568,7 +570,8 @@ def create_datasets_and_loaders(
             model_config.num_classes,
             match_threshold=0.5,
         )
-
+    color_jitter = args.color_jitter
+    print("Color jitter:", color_jitter)   
     loader_train = create_loader(
         dataset_train,
         input_size=input_config['input_size'],
@@ -578,8 +581,8 @@ def create_datasets_and_loaders(
         re_prob=args.reprob,
         re_mode=args.remode,
         re_count=args.recount,
-        # color_jitter=args.color_jitter,
-        # auto_augment=args.aa,
+        color_jitter=args.color_jitter,
+        auto_augment=args.aa,
         interpolation=args.train_interpolation or input_config['interpolation'],
         fill_color=input_config['fill_color'],
         mean=input_config['mean'],
