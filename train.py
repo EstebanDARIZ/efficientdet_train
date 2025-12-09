@@ -1,47 +1,6 @@
-#!/usr/bin/env python
-""" EfficientDet Training Script
-
-This script was started from an early version of the PyTorch ImageNet example
-(https://github.com/pytorch/examples/tree/master/imagenet)
-
-NVIDIA CUDA specific speedups adopted from NVIDIA Apex examples
-(https://github.com/NVIDIA/apex/tree/master/examples/imagenet)
-
-Hacked together by Ross Wightman (https://github.com/rwightman)
 """
-
-
-
-
-
-"""
-python train.py \
-    /home/esteban-dreau-darizcuren/doctorat/dataset/dataset_coco \
-    --dataset coco \
-    --model tf_efficientdet_lite0 \
-    --num-classes 5 \
-    --batch-size 8 \
-    --lr 0.0001 \
-    --epochs 1 \
-    --amp \
-    --output output/
-
-python train.py \
-    /home/esteban-dreau-darizcuren/doctorat/dataset/dataset_coco \
-    --dataset coco \
-    --model tf_efficientdet_d0 \
-    --num-classes 5 \
-    --epochs 1 \
-    --warmup-epochs 0 \
-    --cooldown-epochs 0 \
-    --lr 0.0001 \
-    --batch-size 8 \
-    --amp \
-    --output output/
-    --color-jitter 0.4 --- IGNORE ---
-
-    
-
+Training script for EfficientDet object detection model.
+Exemple usage:
 
 python train.py \
     /home/esteban-dreau-darizcuren/doctorat/dataset/dataset_coco \
@@ -55,9 +14,13 @@ python train.py \
     --amp \
     --output output/
 
+The above will train an EfficientDet-D0 model on a COCO formatted dataset with 5 classes.
+The metric and model checkpoints will be saved to the output/ directory.
+
+
 """
-
-
+import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 
 import os
@@ -106,9 +69,12 @@ except ImportError:
             "Falling back to torch.nn.SyncBatchNorm, does not properly work with timm models in new versions.")
         convert_sync_batchnorm = torch.nn.SyncBatchNorm.convert_sync_batchnorm
 
-from effdet import create_model, unwrap_bench, create_loader, create_dataset, create_evaluator
+from effdet import create_model, unwrap_bench, create_dataset, create_evaluator
 from effdet.data import resolve_input_config, SkipSubset
 from effdet.anchors import Anchors, AnchorLabeler
+
+from efficientdet_train.loader_custom import create_loader as create_loader_custom
+
 
 torch.backends.cudnn.benchmark = True
 
@@ -204,8 +170,8 @@ parser.add_argument('--decay-rate', '--dr', type=float, default=0.1, metavar='RA
                     help='LR decay rate (default: 0.1)')
 
 # Augmentation parameters
-parser.add_argument('--color-jitter', type=float, default=0.0, metavar='PCT',
-                    help='Color jitter factor (default: 0.0)')
+parser.add_argument('--color-jitter', type=float, default=0.4, metavar='PCT',
+                    help='Color jitter factor (default: 0.0 means no jitter).')
 parser.add_argument('--aa', type=str, default=None, metavar='NAME',
                     help='Use AutoAugment policy. "v0" or "original". (default: None)'),
 parser.add_argument('--reprob', type=float, default=0., metavar='PCT',
@@ -570,9 +536,8 @@ def create_datasets_and_loaders(
             model_config.num_classes,
             match_threshold=0.5,
         )
-    color_jitter = args.color_jitter
-    print("Color jitter:", color_jitter)   
-    loader_train = create_loader(
+
+    loader_train = create_loader_custom(
         dataset_train,
         input_size=input_config['input_size'],
         batch_size=args.batch_size,
@@ -597,7 +562,7 @@ def create_datasets_and_loaders(
 
     if args.val_skip > 1:
         dataset_eval = SkipSubset(dataset_eval, args.val_skip)
-    loader_eval = create_loader(
+    loader_eval = create_loader_custom(
         dataset_eval,
         input_size=input_config['input_size'],
         batch_size=args.batch_size,
