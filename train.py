@@ -10,9 +10,7 @@ python train.py \
     --num-classes 5 \
     --batch-size 8 \
     --lr 0.0001 \
-    --epochs 1 \
-    --warmup-epochs 0 \
-    --cooldown-epochs 0 \
+    --epochs 100 \
     --amp \
     --output output/
 
