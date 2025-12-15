@@ -8,7 +8,7 @@ import torchvision.transforms as T
 
 
 plt.rcParams["savefig.bbox"] = 'tight'
-orig_img = Image.open(Path('5.png'))
+orig_img = Image.open(Path('/home/esteban-dreau-darizcuren/doctorat/code/detector/efficientdet_train/4_rgb.png'))
 # if you change the seed, make sure that the randomly-applied transforms
 # properly show that the image can be both transformed and *not* transformed!
 torch.manual_seed(0)
@@ -41,6 +41,11 @@ def plot(imgs, with_orig=True, row_title=None, **imshow_kwargs):
 
     
 
-jitter = T.ColorJitter(brightness=.5, hue=.3)
+jitter = T.ColorJitter(brightness=.3, hue=.3)
 jitted_imgs = [jitter(orig_img) for _ in range(4)]
 plot(jitted_imgs)
+
+for i, img in enumerate(jitted_imgs):
+    name = 'img_' + str(i) + ".jpg"
+    print(name)
+    img.save(name)

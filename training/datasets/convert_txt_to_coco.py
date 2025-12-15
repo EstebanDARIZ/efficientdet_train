@@ -5,8 +5,8 @@ import random
 from pathlib import Path
 from PIL import Image
 
-DATASET_ROOT = "/home/esteban-dreau-darizcuren/doctorat/dataset/dataset_efficientdet"  # dossier principal contenant images/ et labels/
-OUTPUT_ROOT = "/home/esteban-dreau-darizcuren/doctorat/dataset/dataset_coco"  # dossier COCO final
+DATASET_ROOT = "/home/esteban-dreau-darizcuren/doctorat/dataset/dataset_step_10"  # dossier principal contenant images/ et labels/
+OUTPUT_ROOT = "/home/esteban-dreau-darizcuren/doctorat/dataset/dataset_step_10_coco"  # dossier COCO final
 TRAIN_SPLIT = 0.8  # train = 80%, val = 20%
 
 out = Path(OUTPUT_ROOT)

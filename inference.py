@@ -7,18 +7,34 @@ import numpy as np
 import cv2
 import os
 
+from config import CLASS_NAMES
+
 '''
 Inference script for EfficientDet object detection model using PyTorch.
 Exemple usage:
 python inference.py \
     --model tf_efficientdet_d0 \
-    --checkpoint /home/esteban-dreau-darizcuren/doctorat/code/detector/efficientdet_train/output/train/20251203-155514-tf_efficientdet_d0/model_best.pth.tar \
-    --image-dir /home/esteban-dreau-darizcuren/doctorat/dataset/datat_test \
+    --checkpoint /home/esteban-dreau-darizcuren/doctorat/code/detector/efficientdet_train/output/train/slurm/20251205-170046-tf_efficientdet_d0_full/model_best.pth.tar \
+    --image-dir /home/esteban-dreau-darizcuren/doctorat/dataset/img_processed/img_enhanced/UCD \
     --num-classes 5 \
-    --output-dir /home/esteban-dreau-darizcuren/doctorat/code/detector/efficientdet_train/output/inference \
+    --output-dir /home/esteban-dreau-darizcuren/doctorat/code/detector/efficientdet_train/output/inference/UCD \
+    --device cuda \
+    --score-thresh 0.4
+
+python inference.py \
+    --model tf_efficientdet_d0 \
+    --checkpoint /home/esteban-dreau-darizcuren/doctorat/code/detector/efficientdet_train/output/train/slurm/20251209-165945-tf_efficientdet_d0/model_best.pth.tar \
+    --image-dir /home/esteban-dreau-darizcuren/doctorat/code/detector/efficientdet_train/color_jitter \
+    --num-classes 5 \
+    --output-dir /home/esteban-dreau-darizcuren/doctorat/code/detector/efficientdet_train/color_jitter/output/step_5 \
     --device cuda \
     --score-thresh 0.5
+
+
 '''
+import time 
+from codecarbon import OfflineEmissionsTracker
+import torchprofile #To calculate GFLOPs
 
 
 def load_model(model_name, checkpoint, num_classes, image_size, device):
@@ -57,6 +73,7 @@ def run_inference(bench, img_tensor):
 
 def draw_detections(img, detections, image_size, score_thresh=0.1):
     det = detections.cpu().numpy()   # detections is (N, 6)
+    detected_names = []
 
     if det.size == 0:
         print("[INFO] No detections")
@@ -81,6 +98,8 @@ def draw_detections(img, detections, image_size, score_thresh=0.1):
             continue
 
         x1, y1, x2, y2 = map(int, box)
+        cls_name = CLASS_NAMES[cls]
+        detected_names.append(cls_name)
 
         cv2.rectangle(img_cv, (x1, y1), (x2, y2), (0, 255, 0), 2)
         cv2.putText(img_cv, f"{cls}:{score:.2f}",
@@ -88,7 +107,7 @@ def draw_detections(img, detections, image_size, score_thresh=0.1):
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.5, (0, 255, 0), 1)
 
-    return img_cv
+    return img_cv, detected_names 
 
 
 
@@ -109,9 +128,11 @@ def main():
     score_thresh = args.score_thresh
     img_dir = args.image_dir
     out_dir = args.output_dir
+    class_count = {name: 0 for name in CLASS_NAMES}
+
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
-
+    start_load = time.time()
     # Load model
     bench = load_model(
         args.model,
@@ -120,23 +141,64 @@ def main():
         args.image_size,
         device
     )
+    list_cls = []
+    print("Loading model time : ", time.time() - start_load)
+    total_params = sum(p.numel() for p in bench.parameters())
+    print(f"[INFO] Number of parameters: {total_params:,}")
 
     # Load & preprocess image
     for img_name in os.listdir(img_dir):
+        if not img_name.lower().endswith((".jpg", ".jpeg", ".png")):
+            continue
         img_path = os.path.join(img_dir, img_name)
         img, img_tensor = preprocess_image(img_path, args.image_size, device)
 
         # Inference
+        start_inf = time.time()
         detections = run_inference(bench, img_tensor)
+        print("Inference time : ", time.time() - start_inf) 
+        # To get the GFLOPS info 
+        macs = torchprofile.profile_macs(bench, img_tensor)
+        print(macs/1000000000, "GFLOPs")
 
         # Draw results
-        result = draw_detections(img, detections, args.image_size, score_thresh)
+        result, cls_name = draw_detections(img, detections, args.image_size, score_thresh)
+        list_cls.append((img_name, cls_name))
+        for cname in cls_name:
+            class_count[cname] += 1
 
         # Save image
         output_path = os.path.join(out_dir, img_name)
         cv2.imwrite(output_path, result)
         # print(f"[INFO] Saved detection result to: {args.output}")
 
+    txt_path = os.path.join(out_dir, "classes_detected.txt")
+    
+    with open(txt_path, "w", encoding="utf-8") as f:
+
+        # Écrire les détections image par image
+        for img_name, cls_list in list_cls:
+
+            if len(cls_list) == 0:
+                f.write(f"{img_name} : \n")
+            else:
+                classes_str = ", ".join(cls_list)
+                f.write(f"{img_name} : {classes_str}\n")
+
+            # Mise à jour du total
+            for cname in cls_list:
+                class_count[cname] += 1
+
+        # Résumé final
+        f.write("\n--- TOTAL DETECTIONS ---\n")
+        for cname, count in class_count.items():
+            f.write(f"{cname} : {count}\n")
+        f.write("------------------------\n")
+
+
 
 if __name__ == "__main__":
+    # tracker = OfflineEmissionsTracker(country_iso_code="FRA")
+    # tracker.start()
     main()
+    # tracker.stop()
