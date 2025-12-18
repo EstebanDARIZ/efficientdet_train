@@ -15,6 +15,7 @@ Exemple usage:
 python inference.py \
     --model tf_efficientdet_d0 \
     --checkpoint /home/esteban-dreau-darizcuren/doctorat/code/detector/efficientdet_train/output/train/slurm/20251205-170046-tf_efficientdet_d0_full/model_best.pth.tar \
+<<<<<<< HEAD
     --image-dir /home/esteban-dreau-darizcuren/doctorat/dataset/img_processed/img_enhanced/UCD \
     --num-classes 5 \
     --output-dir /home/esteban-dreau-darizcuren/doctorat/code/detector/efficientdet_train/output/inference/UCD \
@@ -31,6 +32,11 @@ python inference.py \
     --score-thresh 0.5
 
 
+=======
+    --image /home/esteban-dreau-darizcuren/doctorat/dataset/dataset_test_2.0/images \
+    --num-classes 5 \
+    --output /home/esteban-dreau-darizcuren/doctorat/code/detector/efficientdet_train/output/inference/dataset_test
+>>>>>>> 840c168 (create compute_IOU based on inference script)
 '''
 import time 
 from codecarbon import OfflineEmissionsTracker
